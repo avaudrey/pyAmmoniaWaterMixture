@@ -70,7 +70,7 @@ class SaturatedAmmonia:
         # And change of the temperature value.
         self._temperature = newt
     pressure = property(_get_pressure, _set_pressure)
-    # Methods 
+    # Static methods 
     @staticmethod
     def ammonia_equilibrium_vapor_pressure(temperature):
         """
@@ -87,6 +87,42 @@ class SaturatedAmmonia:
         # The coefficient '1.01325' is here because the original formula considered
         # the pressure in atmospheres.
         return 1.01325*pow(10, logp)
+    # And other methods
+    def liquid_specific_volume(self):
+        """
+        Specific volume, in [m3/kg], of pure ammonia in its saturated liquid
+        phase.
+        """
+        if (self._temperature < -70.) or (self._temperature > 130.):
+            raise ValueError("Temperature T must be such as -70°C < T < 130°C")
+        # Intermediate variables
+        DT = 133.-self._temperature
+        sDT = np.sqrt(DT)
+        return 1e-3*(4.283+0.813055*sDT-0.0082861*DT)/(1+0.424805*sDT+0.015938*DT)
+    def liquid_density(self):
+        """
+        Density, in [kg/m3], of pure ammonia in its saturated liquid phase.
+        """
+        return 1/self.liquid_specific_volume()
+    def vapor_specific_volume(self):
+        """
+        Specific volume, in [m3/kg], of pure ammonia in its saturated vapor 
+        phase.
+        """
+        if (self._temperature < -70.) or (self._temperature > 50.):
+            raise ValueError("Temperature T must be such as -70°C < T < 50°C")
+        # Experimental correlation
+        logv = 1939.032/(self._temperature+273.1)-32.0661\
+                +10.70409*np.log10(self._temperature+273.1)\
+                +8.62366e-2*np.sqrt(133.-self._temperature)\
+                +2.667e-3*(133.-self._temperature)
+        # The result was initially in cm3/g, so 1e-3 factor
+        return 1e-3*pow(10, logv)
+    def vapor_density(self):
+        """
+        Density, in [kg/m3], of pure ammonia in its saturated vapor phase.
+        """
+        return 1/self.vapor_specific_volume()
 
 if __name__ == '__main__':
     state1 = SaturatedAmmonia()
