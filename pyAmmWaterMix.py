@@ -290,7 +290,7 @@ class WaterAmmoniaMixture:
         """
         Calculation of the bubble point temperature (in °C) of a Water+Ammonia
         mixture for given values of pressure (in bar) and ammonia liquid mass
-        fraction. """
+        fraction xNH3. """
         # Experimental parameters used in the final calculation, that use the
         # formulation proposed by Pátek and Klomfar [1].
         # [1] http://dx.doi.org/10.1016/0140-7007(95)00006-W
@@ -307,6 +307,30 @@ class WaterAmmoniaMixture:
         Tb = T0*(np.array(a)*pow(1-amm_liquid_mass_fraction,np.array(m))*\
                  pow(np.log(p0/pressure),n)).sum()
         return Tb-273.15
+    @staticmethod
+    def dew_point_temperature(pressure, amm_vapour_mass_fraction):
+        """
+        Calculation of the dew point temperature (in °C) of a Water+Ammonia
+        mixture for given values of pressure (in bar) and ammonia vapour mass
+        fraction yNH3.
+        """
+        # Experimental parameters used in the final calculation, that use the
+        # formulation proposed by Pátek and Klomfar [1].
+        # [1] http://dx.doi.org/10.1016/0140-7007(95)00006-W
+        # Reference values of temperature and pressure
+        T0 , p0 = 100., 20.
+        # And corresponding empirical coefficients
+        m = np.array([0]*4+[1]*3+[2]*2+[3]*2+[4]*2+[5]*2+[6]+[7])
+        n = np.array([0,1,2,3,0,1,2,0,1,0,1,0,2,0,2,0,2])
+        a = np.array([0.324004e+1,-0.395920e+0,0.435624e-1,-0.218943e-2,\
+                      -0.143526e+1,0.105256e+1,-0.719281e-1,0.122362e+2,\
+                      -0.224368e+1,-0.201780e+2,0.110834e+1,0.145399e+2,\
+                      0.644312e+0,-0.221246e+1,-0.756266e+0,-0.135529e+1,\
+                      0.183541e+0])
+        # And calculation of the bubble temperature
+        Td = T0*(np.array(a)*pow(1-amm_vapour_mass_fraction,0.25*np.array(m))*\
+                 pow(np.log(p0/pressure),n)).sum()
+        return Td-273.15
     # ---- Mixture properties -------------------------------------------------
     def temperature_range(self):
         """ Range of temperature corresponding to a mixture of ammonia and
@@ -318,19 +342,68 @@ class WaterAmmoniaMixture:
         return [teqmin, teqmax]
     def pressure_range(self):
         """ Range of pressure corresponding to a mixture of ammonia and
-        water at the current temperature."""
+        water at the current temperature. """
         # Minimum and maximum pressure at this temperature, which correspond to
         # the equilibrium vapor ones of water and ammonia, respectively.
         peqmin = self.water_equilibrium_vapor_pressure(self._temperature)
         peqmax = self.ammonia_equilibrium_vapor_pressure(self.temperature)
         return [peqmin, peqmax]
-    def liquid_ammonia_mass_fraction(self):
+    def ammonia_liquid_mass_fraction(self):
         """ Mass fraction of ammonia xNH3 within the liquid phase, calculated
-        from the temperature in [K] and the pressure in [bar]. """
-        pass
-    def vapor_ammonia_mass_fraction(self):
-        """ Mass fraction of ammonia yNH3 within the vapor phase. """
-        pass
+        from the temperature in [°C] and the pressure in [bar]. """
+        def f_to_solve(xNH3):
+            # Function created only for calculation purpose
+            return self.bubble_point_temperature(self._pressure, xNH3)\
+                    -self._temperature
+        # And solving to obtain the solution, using the Brent method.
+        return sp.brenth(f_to_solve,0.0,1.0)
+    def ammonia_vapor_mass_fraction(self):
+        """ Mass fraction of ammonia yNH3 within the vapor phase, calculated
+        from the temperature in [°C] and the pressure in [bar]. """
+        def f_to_solve(yNH3):
+            # Function created only for calculation purpose
+            return self.dew_point_temperature(self._pressure, yNH3)\
+                    -self._temperature
+        # And solving to obtain the solution, using the Brent method.
+        return sp.brenth(f_to_solve,0.0,1.0)
+    def liquid_enthalpy(self):
+        """ Calculation of the enthalpy of the liquid phase, in kJ/kg. """
+        # Experimental parameters used in the final calculation, that use the
+        # formulation proposed by Pátek and Klomfar [1].
+        # [1] http://dx.doi.org/10.1016/0140-7007(95)00006-W
+        # Reference values of temperature and pressure
+        T0 , h0 = 273.16 , 100.
+        # And corresponding empirical coefficients
+        m = np.array([0]*6+[1]*2+[2]+[3]+[5]*3+[6]*2+[8])
+        n = np.array([1,4,8,9,12,14,0,1,1,3,3,4,5,2,4,0])
+        a = np.array([-0.76108e+1,0.256905e+2,-0.247092e+3,0.325952e+3,\
+                      -0.158854e+3,0.619084e+2,0.114314e+2,0.118157e+1,\
+                      0.284179e+1,0.741609e+1,0.891844e+3,-0.161309e+4,\
+                      0.622106e+3,-0.207588e+3,-0.687393e+1,0.350716e+1])
+        # And calculation of the enthalpy 
+        xNH3 = self.ammonia_liquid_mass_fraction()
+        hL = h0*sum(np.array(a)*pow(xNH3, np.array(n))*pow((self._temperature+273.15)/T0-1.0,m))
+        return hL
+    def vapor_enthalpy(self):
+        """ Calculation of the enthalpy of the vapor phase, in kJ/kg. """
+        # Experimental parameters used in the final calculation, that use the
+        # formulation proposed by Pátek and Klomfar [1].
+        # [1] http://dx.doi.org/10.1016/0140-7007(95)00006-W
+        # Reference values of temperature and pressure
+        T0 , h0 = 324. , 1000.
+        # And corresponding empirical coefficients
+        m = np.array([0,1,2,3]*2+[0,1,2,0,1,0,4,2,1])
+        n = np.array([0]*4+[2]*4+[3]*3+[4]*2+[5,6,7,10])
+        a = np.array([0.128827e+1,0.125247e+0,-0.208748e+1,0.217696e+1,\
+                      0.235687e+1,-0.886987e+1,0.102635e+2,-0.23744e+1,\
+                      -0.670155e+1,0.164508e+2,-0.936849e+1,0.842254e+1,\
+                      -0.858907e+1,-0.277049e+1,-0.961248e+0,0.988009e+0,\
+                      0.308482e+0])
+        # And calculation of the enthalpy 
+        yNH3 = self.ammonia_vapor_mass_fraction()
+        hG = h0*sum(np.array(a)*pow(1-yNH3,np.array(n)*0.25)*\
+                    pow(1-(self._temperature+273.15)/T0,m))
+        return hG
 
 if __name__ == '__main__':
 #    state1 = SaturatedAmmonia()
