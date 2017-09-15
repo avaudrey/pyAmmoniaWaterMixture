@@ -42,7 +42,7 @@ class SaturatedAmmonia:
         """ Temperature value, in [°C]. """
         return self._temperature
     def _set_temperature(self, t):
-        """ Entry of a new temperature value, in [°C]. """
+        """ New temperature value, in [°C]. """
         # Once we get the new value of temperature
         self._temperature = t
         # We immediately compute the corresponding value of the equilibrium
@@ -53,7 +53,7 @@ class SaturatedAmmonia:
         """ Absolute pressure value, in [bar]. """
         return self._pressure
     def _set_pressure(self, p):
-        """ Entry of a new absolute pressure value, in [bar]. """
+        """ New absolute pressure value, in [bar]. """
         # We check if this value is positive
         if p<0:
             raise ValueError("Absolute pressure must be positive!")
@@ -123,6 +123,11 @@ class SaturatedAmmonia:
         Density, in [kg/m3], of pure ammonia in its saturated vapor phase.
         """
         return 1/self.vapor_specific_volume()
+    def vapor_enthalpy(self):
+        """ Mass specific enthalpy of the vapor phase, in [kJ/kg]. """
+        # Calculated from the NIST correlations :
+        # http://webbook.nist.gov/cgi/inchi/InChI%3D1S/H3N/h1H3
+        pass
 
 if __name__ == '__main__':
     state1 = SaturatedAmmonia()
