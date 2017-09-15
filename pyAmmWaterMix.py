@@ -160,18 +160,17 @@ class WaterAmmoniaMixture:
         return self._temperature
     def _set_temperature(self, t):
         """ New temperature value, in [°C], that must be within a defined range
-        in order to actually have a mixture of water and ammonia, and not one of
-        these pure components. """
+        in order to actually have a mixture of water and ammonia. """
         # ---- Pressure range check -------------------------------------------
         # Maximum and minimum values of the mixture temperature at the given
-        # pressure, defined from the bubble point curve of the mixture (the same
-        # result would have been obtained using the dew point curve instead).
-        tmax = self.bubble_point_temperature(self._pressure, 0.0)
-        tmin = self.bubble_point_temperature(self._pressure, 1.0)
+        # pressure are calculated using the saturated properties of each
+        # component.
+        tmin , tmax = self.temperature_range()
         # Check if the entered temperature is within the corresponding mixture
         # temperature range.
         if (t < tmin) or (t > tmax):
-            raise ValueError("At this pressure, temperature it must be between %3.2f K and %3.2f K to obtain a mixture!" % (tmin, tmax))
+            # If not, we cannot have a mixture of water and ammonia
+            raise ValueError("At this pressure, temperature it must be between %3.2f°C and %3.2f°C to have a mixture!" % (tmin, tmax))
         else:
             # If it's OK, we get the new value of the temperature
             self._temperature = t
@@ -180,35 +179,24 @@ class WaterAmmoniaMixture:
         """ Absolute pressure value, in [bar]. """
         return self._pressure
     def _set_pressure(self, p):
-        """ New absolute pressure value, in [bar]. """
+        """ New absolute pressure value, in [bar], that must be within a limited 
+        range in order to actually have a mixture of water and ammonia. """
         # We check if this value is positive
         if p<0:
             raise ValueError("Absolute pressure must be positive!")
         # ---- Temperature range check ----------------------------------------
         # Maximum and minimum bubble point temperatures at this new pressure
-        tmin = self.bubble_point_temperature(p, 0.0)
-        tmax = self.bubble_point_temperature(p, 1.0)
-        if (self._temperature < tmin) or (self._temperature > tmax):
-            # If the entered pressure corresponds to a minimum bubble point
-            # temperature greater to the mixture one ; or to a maximum bubble
-            # point temperature lower than the mixture, no mixture can exist
-            # within this couple of pressure and temperature. We can then raise
-            # an error and calculate the temperature range that corresponds to
-            # our new pressure.
-            raise ValueError("At this temperature, pressure must be between")
-#        %3.2f bar and %3.2f bar to obtain a mixture!" % (min(temp1,temp2),max(temp1,temp2)))
+        pmin , pmax = self.pressure_range() 
+        if (p < pmin) or (p > pmax):
+            # If the entered pressure is lower than the water vapor equilibrium
+            # one or higher than the ammonia equilibrium one, there is no
+            # mixture.
+            # Minimum and maximum temperature at this pressure correspond to the
+            # equilibrium vapor ones of ammonia and water, respectively.
+            raise ValueError("At this temperature, pressure must be between %3.3f bar and %3.3f bar to have a mixture!" % (pmin, pmax))
         else:
             # If it's OK, we get our new pressure
             self._pressure = p
-        # Then, we need to check if the new temperature is within the range
-        # corresponding to the existence of the mixture. For so, we have to
-        # compute the pressure values that correspond to an equality between the
-        # bubble point temperature and the one entered, in solving:
-#        def f_to_solve(pressure,x):
-#            # The root of this function has to be found to obtain the pressure
-#            # value corresponding to an equality between the entered temperature
-#            # and the bubble point one.
-#            return pow(self.bubble_point_temperature(pressure,x)-p,2)
     pressure = property(_get_pressure, _set_pressure)
     # ---- Saturated states of pure ammonia and water -------------------------
     @staticmethod
@@ -300,7 +288,7 @@ class WaterAmmoniaMixture:
     @staticmethod
     def bubble_point_temperature(pressure, amm_liquid_mass_fraction):
         """
-        Calculation of the bubble point temperature (in K) of a Water+Ammonia
+        Calculation of the bubble point temperature (in °C) of a Water+Ammonia
         mixture for given values of pressure (in bar) and ammonia liquid mass
         fraction. """
         # Experimental parameters used in the final calculation, that use the
@@ -318,8 +306,24 @@ class WaterAmmoniaMixture:
         # And calculation of the bubble temperature
         Tb = T0*(np.array(a)*pow(1-amm_liquid_mass_fraction,np.array(m))*\
                  pow(np.log(p0/pressure),n)).sum()
-        return Tb
-    # ---- And methods --------------------------------------------------------
+        return Tb-273.15
+    # ---- Mixture properties -------------------------------------------------
+    def temperature_range(self):
+        """ Range of temperature corresponding to a mixture of ammonia and
+        water at the current pressure."""
+        # Minimum and maximum temperature at this pressure, which correspond to
+        # the equilibrium vapor ones of ammonia and water, respectively.
+        teqmin = self.ammonia_equilibrium_vapor_temperature(self._pressure)
+        teqmax = self.water_equilibrium_vapor_temperature(self._pressure)
+        return [teqmin, teqmax]
+    def pressure_range(self):
+        """ Range of pressure corresponding to a mixture of ammonia and
+        water at the current temperature."""
+        # Minimum and maximum pressure at this temperature, which correspond to
+        # the equilibrium vapor ones of water and ammonia, respectively.
+        peqmin = self.water_equilibrium_vapor_pressure(self._temperature)
+        peqmax = self.ammonia_equilibrium_vapor_pressure(self.temperature)
+        return [peqmin, peqmax]
     def liquid_ammonia_mass_fraction(self):
         """ Mass fraction of ammonia xNH3 within the liquid phase, calculated
         from the temperature in [K] and the pressure in [bar]. """
