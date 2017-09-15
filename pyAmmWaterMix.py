@@ -210,7 +210,7 @@ class WaterAmmoniaMixture:
 #            # and the bubble point one.
 #            return pow(self.bubble_point_temperature(pressure,x)-p,2)
     pressure = property(_get_pressure, _set_pressure)
-    #
+    # ---- Saturated states of pure ammonia and water -------------------------
     @staticmethod
     def ammonia_equilibrium_vapor_pressure(temperature):
         """
@@ -241,6 +241,62 @@ class WaterAmmoniaMixture:
         # The coefficient '1.01325' is here because the original formula considered
         # the pressure in atmospheres.
         return 1.01325*pow(10, logp)
+    def ammonia_equilibrium_vapor_temperature(self, pressure):
+        """
+        Equilibrium vapor temperature of pure ammonia, in [°C] at a given
+        pressure, in [bar], between 0.11 bar and 108 bar.
+        """
+        # We calculate the corresponding value of the temperature, firstly in
+        # defining the function to solve in order to find the temperature value.
+        def f_to_solve(temp):
+            # We look for the root of the square of the function, and not of the
+            # function itself, in order to go quicker to the solution and to
+            # avoid any problem with the initial sign of the difference.
+            return self.ammonia_equilibrium_vapor_pressure(temp)-pressure
+        # Solving by a Brent method within a temperature range corresponding to
+        # the one going from the triple temperature to the critical one.
+        teq = sp.brenth(f_to_solve, -77., 132.) 
+        # And result
+        return teq
+    @staticmethod
+    def water_equilibrium_vapor_pressure(temperature):
+        """
+        Equilibrium vapor pressure of pure water, in [bar] at a given temperature,
+        in [°C], between 1°C and 374°C, using the Antoine's equation.
+        """
+        # Check of the temperature range
+        if (temperature < 1.0) or (temperature > 374.): 
+            raise ValueError("Temperature must be such as 0°C < T < 374°C")
+        # If it's OK
+        if (temperature > 1.0) and (temperature < 100.):
+            # Lower temperature range
+            # Empirical coefficients used to compute the pressure value
+            c = np.array([8.07131, 1730.63, 233.426])
+            logp = c[0] - c[1]/(c[2]+temperature)
+        else:
+            # Empirical coefficients used to compute the pressure value
+            c = np.array([8.14019, 1810.94, 244.485])
+            logp = c[0] - c[1]/(c[2]+temperature)
+        # The coefficient '1.333224e-3' is here because the original formula
+        # considered the pressure in Torricelli.
+        return 1.333224e-3*pow(10, logp)
+    def water_equilibrium_vapor_temperature(self, pressure):
+        """
+        Equilibrium vapor temperature of pure water, in [°C] at a given
+        pressure, in [bar], between 0.008 bar and 217 bar.
+        """
+        # We calculate the corresponding value of the temperature, firstly in
+        # defining the function to solve in order to find the temperature value.
+        def f_to_solve(temp):
+            # We look for the root of the square of the function, and not of the
+            # function itself, in order to go quicker to the solution and to
+            # avoid any problem with the initial sign of the difference.
+            return self.water_equilibrium_vapor_pressure(temp)-pressure
+        # Solving by a Brent method within a temperature range corresponding to
+        # the one going from the triple temperature to the critical one.
+        teq = sp.brenth(f_to_solve, 1.0, 374.) 
+        # And result
+        return teq
     @staticmethod
     def bubble_point_temperature(pressure, amm_liquid_mass_fraction):
         """
