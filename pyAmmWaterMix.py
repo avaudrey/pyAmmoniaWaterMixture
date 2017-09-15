@@ -75,15 +75,29 @@ class SaturatedAmmonia:
     def ammonia_equilibrium_vapor_pressure(temperature):
         """
         Equilibrium vapor pressure of pure ammonia, in [bar] at a given temperature,
-        in [°C].
+        in [°C], between -78°C and 133°C.
         """
-        if (temperature < -78.) or (temperature > 70.):
-            raise ValueError("Temperature T must be such as -78°C < T < 70°C")
-        # Empirical coefficients used to compute the pressure value
-        c = np.array([-1648.6068,9.584586,-1.638646e-2,2.403276e-5,-1.168708e-8])
-        # Exponents
-        e = np.arange(-1,4)
-        logp = (c*pow(temperature+273.15, e)).sum()
+        # Check of the temperature range
+        if (temperature < -78.) or (temperature > 133.): 
+            raise ValueError("Temperature must be such as -78°C < T < 70°C")
+        # If it's OK
+        tK = temperature + 273.15
+        if (temperature > -78.) and (temperature < 60.):
+            # Lower temperature range
+            # Empirical coefficients used to compute the pressure value
+            c = np.array([-1648.6068,9.584586,-1.638646e-2,2.403276e-5,-1.168708e-8])
+            # Exponents
+            e = np.arange(-1,4)
+            logp = sum(c*pow(tK, e))
+        else:
+            # Higher temperature range, with a temperature in [K]
+            # Critical temperature for ammonia
+            tcrit = 406.
+            # Empirical coefficients used to compute the pressure value
+            c = np.array([2.9771,-1.492414e-3,1.36142e-5,-5.47917e-8])
+            # Exponents
+            e = np.arange(0,4)
+            logp = 2.050418-(tcrit-tK)/tK*sum(c*pow(tcrit-tK,e))
         # The coefficient '1.01325' is here because the original formula considered
         # the pressure in atmospheres.
         return 1.01325*pow(10, logp)
@@ -129,8 +143,138 @@ class SaturatedAmmonia:
         # http://webbook.nist.gov/cgi/inchi/InChI%3D1S/H3N/h1H3
         pass
 
+class WaterAmmoniaMixture:
+    """ Mixture of water and ammonia. """
+    # TODO : Check if all the fractions of ammonia are actually calculated in
+    # mass.
+    def __init__(self):
+        # Name of the mixture, if necessary
+        self.name = 'mixture1'
+        # Temperature, in [°C]
+        self._temperature = 20.0
+        # Pressure, in [bar] 
+        self._pressure = 1.0
+    # Attributes defined as properties, with first of all, the temperature
+    def _get_temperature(self):
+        """ Temperature value, in [°C]. """
+        return self._temperature
+    def _set_temperature(self, t):
+        """ New temperature value, in [°C], that must be within a defined range
+        in order to actually have a mixture of water and ammonia, and not one of
+        these pure components. """
+        # ---- Pressure range check -------------------------------------------
+        # Maximum and minimum values of the mixture temperature at the given
+        # pressure, defined from the bubble point curve of the mixture (the same
+        # result would have been obtained using the dew point curve instead).
+        tmax = self.bubble_point_temperature(self._pressure, 0.0)
+        tmin = self.bubble_point_temperature(self._pressure, 1.0)
+        # Check if the entered temperature is within the corresponding mixture
+        # temperature range.
+        if (t < tmin) or (t > tmax):
+            raise ValueError("At this pressure, temperature it must be between %3.2f K and %3.2f K to obtain a mixture!" % (tmin, tmax))
+        else:
+            # If it's OK, we get the new value of the temperature
+            self._temperature = t
+    temperature = property(_get_temperature, _set_temperature)
+    def _get_pressure(self):
+        """ Absolute pressure value, in [bar]. """
+        return self._pressure
+    def _set_pressure(self, p):
+        """ New absolute pressure value, in [bar]. """
+        # We check if this value is positive
+        if p<0:
+            raise ValueError("Absolute pressure must be positive!")
+        # ---- Temperature range check ----------------------------------------
+        # Maximum and minimum bubble point temperatures at this new pressure
+        tmin = self.bubble_point_temperature(p, 0.0)
+        tmax = self.bubble_point_temperature(p, 1.0)
+        if (self._temperature < tmin) or (self._temperature > tmax):
+            # If the entered pressure corresponds to a minimum bubble point
+            # temperature greater to the mixture one ; or to a maximum bubble
+            # point temperature lower than the mixture, no mixture can exist
+            # within this couple of pressure and temperature. We can then raise
+            # an error and calculate the temperature range that corresponds to
+            # our new pressure.
+            raise ValueError("At this temperature, pressure must be between")
+#        %3.2f bar and %3.2f bar to obtain a mixture!" % (min(temp1,temp2),max(temp1,temp2)))
+        else:
+            # If it's OK, we get our new pressure
+            self._pressure = p
+        # Then, we need to check if the new temperature is within the range
+        # corresponding to the existence of the mixture. For so, we have to
+        # compute the pressure values that correspond to an equality between the
+        # bubble point temperature and the one entered, in solving:
+#        def f_to_solve(pressure,x):
+#            # The root of this function has to be found to obtain the pressure
+#            # value corresponding to an equality between the entered temperature
+#            # and the bubble point one.
+#            return pow(self.bubble_point_temperature(pressure,x)-p,2)
+    pressure = property(_get_pressure, _set_pressure)
+    #
+    @staticmethod
+    def ammonia_equilibrium_vapor_pressure(temperature):
+        """
+        Equilibrium vapor pressure of pure ammonia, in [bar] at a given temperature,
+        in [°C], between -78°C and 133°C.
+        """
+        # Check of the temperature range
+        if (temperature < -78.) or (temperature > 133.): 
+            raise ValueError("Temperature must be such as -78°C < T < 70°C")
+        # If it's OK
+        tK = temperature + 273.15
+        if (temperature > -78.) and (temperature < 60.):
+            # Lower temperature range
+            # Empirical coefficients used to compute the pressure value
+            c = np.array([-1648.6068,9.584586,-1.638646e-2,2.403276e-5,-1.168708e-8])
+            # Exponents
+            e = np.arange(-1,4)
+            logp = sum(c*pow(tK, e))
+        else:
+            # Higher temperature range, with a temperature in [K]
+            # Critical temperature for ammonia
+            tcrit = 406.
+            # Empirical coefficients used to compute the pressure value
+            c = np.array([2.9771,-1.492414e-3,1.36142e-5,-5.47917e-8])
+            # Exponents
+            e = np.arange(0,4)
+            logp = 2.050418-(tcrit-tK)/tK*sum(c*pow(tcrit-tK,e))
+        # The coefficient '1.01325' is here because the original formula considered
+        # the pressure in atmospheres.
+        return 1.01325*pow(10, logp)
+    @staticmethod
+    def bubble_point_temperature(pressure, amm_liquid_mass_fraction):
+        """
+        Calculation of the bubble point temperature (in K) of a Water+Ammonia
+        mixture for given values of pressure (in bar) and ammonia liquid mass
+        fraction. """
+        # Experimental parameters used in the final calculation, that use the
+        # formulation proposed by Pátek and Klomfar [1].
+        # [1] http://dx.doi.org/10.1016/0140-7007(95)00006-W
+        # Reference values of temperature and pressure
+        T0 , p0 = 100., 20.
+        # And corresponding empirical coefficients
+        m = np.array([0]*5+[1]*3+[2]+[4]+[5]*2+[6]+[13])
+        n = np.array([0,1,2,3,4,0,1,2,3,0,0,1,0,1])
+        a = np.array([0.322302e+1,-0.384206e+0,0.460965e-1,-0.378945e-2,\
+                      0.135610e-3,0.487755e+0,-0.120108e+0,0.106154e-1,\
+                      -0.533589e-3,0.785041e+1,-0.115941e+2,-0.523150e-1,\
+                      0.489596e+1,0.421059e-1])
+        # And calculation of the bubble temperature
+        Tb = T0*(np.array(a)*pow(1-amm_liquid_mass_fraction,np.array(m))*\
+                 pow(np.log(p0/pressure),n)).sum()
+        return Tb
+    # ---- And methods --------------------------------------------------------
+    def liquid_ammonia_mass_fraction(self):
+        """ Mass fraction of ammonia xNH3 within the liquid phase, calculated
+        from the temperature in [K] and the pressure in [bar]. """
+        pass
+    def vapor_ammonia_mass_fraction(self):
+        """ Mass fraction of ammonia yNH3 within the vapor phase. """
+        pass
+
 if __name__ == '__main__':
-    state1 = SaturatedAmmonia()
-    print(state1.__dict__)
-    state1.temperature = 50.
-    print(state1.__dict__)
+#    state1 = SaturatedAmmonia()
+#    print(state1.__dict__)
+#    state1.temperature = 50.
+#    print(state1.__dict__)
+    pass
